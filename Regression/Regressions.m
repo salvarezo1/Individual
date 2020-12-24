@@ -3,30 +3,31 @@ classdef Regressions < handle
     %   Detailed explanation goes here
     
     properties
-        tot
-        orig
-        polyn
-        a_grade
-        index
-        expo
-        rec
-        less_data_orig
+        %original_function: Function made for the first part of the article.
+        original_function
+        %polynomic_regression: Function made for create a polynomic regression.
+        polynomic_regression
+        %exponential_regression: Saves the data to plot the exponential
+        %regression.
+        exponential_regression
+        %polynomic_exponential_correlation: Saves the correlation between
+        %the orginal function and the polynomic and exponential
+        %regressions.
+        polynomic_exponential_correlation
     end
-    
-    %properties (Dependent)
-     %   less_data_orig
-    %end
     
     methods 
         
-        function obj = originalFn(obj, ~)
+        function obj = Original_Function(obj, amount_dates)
             
-            retorn = zeros(10*obj.tot+1, 2);
+            %Creates the function that I'm trying to study, whose formula
+            %is in the article.
             
-            for t = 0:10*obj.tot
-                k = t/10;
+            retorn = zeros(amount_dates, 2);
+            
+            for t = 1:amount_dates
                 
-                y = exp(log(2)*k);
+                y = exp(log(2)*t);
                 
                 if mod(y,10) < 5
                     y = floor(y/10)/10;
@@ -34,158 +35,352 @@ classdef Regressions < handle
                     y = ceil(y/10)/10;
                 end
                 
-                retorn(t+1, 1) = k;
-                retorn(t+1, 2) = y;
+                retorn(t, 1) = t;
+                retorn(t, 2) = y;
             end
             
-            obj.orig = retorn;
-            %disp(obj.orig);
+            obj.original_function = retorn;
             
-            %plot(retorn(:,1), retorn(:,2), '-.b', 'LineWidth',2);
         end
         
-        function obj = polynomicReg(obj, abs_grade)
+        %Auxiliar
+        function end_data = Sum_Data_Polynomic_Regression(~, varargin)
             
-            close(figure);
+            ret_val = 0;
             
-            table = zeros(10*obj.tot + 1, 2);
-            
-            if isempty(obj.index) || obj.a_grade ~= abs_grade
+            if length(varargin) == 2
                 
-                obj.a_grade = abs_grade;
-                indices = zeros(abs_grade+1, 1);
+                for i = 1:length(varargin{1})
+                    
+                    ret_val = ret_val + varargin{1}(i, 1)^varargin{2};
+                end
+                
+            elseif length(varargin) == 4
+                    
+                for i = 1:length(varargin{1})
+                    
+                    ret_val = ret_val + (varargin{1}(i, 1)^varargin{2})*(varargin{3}(i, 1)^varargin{4});
+                end
+                
+            end
+                    
+            end_data = ret_val;
+            %disp(end_data);
 
-                for ind = 0:abs_grade
-                    k = num2str(ind);
-                    indices(ind+1, 1) = input(sprintf('Index number %s: ', k));
-                end
+        end
+        
+        %Auxiliar
+        function matrix_of_values = Generate_Values(obj, Grade, Function)
+            
+            %r1 = Regressions();
+            matrix_of_values_return = zeros(Grade + 1, Grade + 2);
+        
+            for row = 1:size(matrix_of_values_return,1)
                 
-                obj.index = indices;
+                for column = 1:size(matrix_of_values_return,2)
+                    
+                    if(column ~= size(matrix_of_values_return,2))
+                        
+                        matrix_of_values_return(row, column) = obj.Sum_Data_Polynomic_Regression(Function(:, 1), row + column - 2);
+                    
+                    else
+                        
+                        matrix_of_values_return(row, column) = obj.Sum_Data_Polynomic_Regression(Function(:, 1), row - 1, Function(:, 2), 1);
+                    
+                    end
+                end
             end
             
-            for t = 0:10*obj.tot
-                i = t/10;
+            matrix_of_values = matrix_of_values_return;
+            
+        end
+        
+        %Auxiliar
+        function indices = Generate_Polynomic_Indices(obj, Grade, Function)
+            
+            s1 = Solutions();
+            
+            matrix = obj.Generate_Values(Grade, Function);
+            reduct_matrix = s1.Reductible(matrix);
+            indices = s1.Results(reduct_matrix);
+            
+        end
+        
+        function obj = Polynomic_Regression(obj, varargin)
+            
+            %Generates a polynomic regression of an "abs_grade", which is
+            %its maximum.
+            %varargin{1}: Grade.
+            %varargin{2}: Function. If this doesn't exist, then it will be
+            %taken the attribute obj.original_function.
+            
+            Grade = varargin{1};
+            
+            if length(varargin) == 1
+                
+                Function = obj.original_function;
+                
+            elseif length(varargin) == 2
+                
+                Function = varargin{2};
+                
+            end
+            
+            polynomic_table = zeros(length(Function), 2);
+            Indices = obj.Generate_Polynomic_Indices(Grade, Function);
+            
+            min_el = 1;
+            max_el = min_el;
+            
+            for t = 1:length(Function)
+                
                 add_up = 0;
-                table(t+1 , 1) = i;
+                polynomic_table(t , 1) = Function(t, 1);
                 
-                for grade = 0:abs_grade
-                    add_up = add_up + obj.index(grade+1, 1)*i^grade;
+                if polynomic_table(t , 1) > polynomic_table(max_el , 1)
+                    
+                    max_el = t;
+                    
+                elseif polynomic_table(t , 1) < polynomic_table(min_el , 1)
+                    
+                    min_el = t;
+                    
                 end
                 
-                table(t+1, 2) = add_up;
+                for grade = 0:Grade
+                    add_up = add_up + Indices(grade+1)*polynomic_table(t , 1)^grade;
+                end
+                
+                polynomic_table(t , 2) = add_up;
             end
             
-            distabl = zeros(obj.tot+1, 2);
             
-            for l = 0:obj.tot
-                distabl(l+1, 1) = table(10*l + 1, 1);
-                distabl(l+1, 2) = table(10*l + 1, 2);
+            if length(polynomic_table) < 100
+                
+                plot_polynomic_function = zeros(101, 2);
+                
+                for i = 0:100
+                    
+                    add_up = 0;
+                    plot_polynomic_function(i + 1, 1) = polynomic_table(min_el, 1) + i*(polynomic_table(max_el, 1) - polynomic_table(min_el, 1))/100;
+                    
+                    for grade = 0:Grade
+                        add_up = add_up + Indices(grade + 1)*plot_polynomic_function(i + 1, 1)^grade;
+                    end
+                    
+                    plot_polynomic_function(i + 1, 2) = add_up;
+                end
+                
+            else
+                
+                plot_polynomic_function = polynomic_table;
+                
             end
             
+            obj.polynomic_regression{1} = polynomic_table;
+            obj.polynomic_regression{2} = plot_polynomic_function;
+            obj.polynomic_regression{3} = Indices;
+
             %disp(distabl);
-            
-            obj.polyn = table;
-            
+            %plot(distabl(:,1), distabl(:,2));
             %plot(table(:,1), table(:,2), '--r', 'LineWidth', 2);
+            
         end
         
-        function obj = expReg(obj, a, k)
+        function obj = Exponential_Regression(obj, varargin)
             
-            table = zeros(10*obj.tot + 1, 2);
+            %Generates an exponential regression having a base (a in the
+            %article) and an exponent (k in the article). Don't know how to
+            %make it to exponent and base differents. Maybe a boolean
+            %variable?
             
-            for i = 0:10*obj.tot
-                l = i/10;
-                table(i + 1, 1) = l;
-                table(i + 1, 2) = a*exp(k*l);
+            if length(varargin) >= 2
+                
+                constant = varargin{1};
+                exponent = varargin{2};
+                
+                if length(varargin) == 2
+                    
+                    Function = obj.original_function;
+                    
+                else
+                    
+                    Function = varargin{3};
+                    
+                end
+                
+            elseif length(varargin) <= 1
+                
+                if isempty(varargin)
+                
+                    Function = obj.original_function;
+                    
+                elseif length(varargin) == 1
+                    
+                    Function = varargin{1};
+                    
+                end
+                
+                Zeros1 = LinkedList();
+                
+                for t = 1:length(Function)
+                    
+                    if round(Function(t, 2), 1) >= 1
+                        
+                        Zeros1.insertAtEnd(Node(Function(t, :)));
+                        
+                    end
+                end
+                
+                Function1 = zeros(Zeros1.size, 2);
+                
+                head1 = Zeros1.head;
+                
+                for i = 1:Zeros1.size
+                   
+                    Function1(i, :) = head1.data;
+                    head1 = head1.next;
+                    
+                end
+                
+                Function1(:, 2) = log(Function1(:, 2));
+                
+                r1 = Regressions();
+                
+                r1.Polynomic_Regression(1, Function1);
+                
+                indices = r1.polynomic_regression{3};
+                
+                constant = exp(indices(1));
+                exponent = indices(2);
+                disp(constant);
+                disp(exponent);
+                
+            end
+                
+            indices = [constant exponent];
+            
+            exponential_table = zeros(length(Function), 2);
+            
+            min_el = 1;
+            max_el = min_el;
+            
+            for i = 1:length(Function)
+
+                exponential_table(i, :) = [Function(i, 1) constant*exp(exponent*Function(i, 1))];
+                
+                if exponential_table(min_el, 1) > exponential_table(i, 1)
+                   
+                    min_el = i;
+                    
+                elseif exponential_table(max_el, 1) < exponential_table(i, 1)
+                    
+                    max_el = i;
+                    
+                end
             end
             
-            %disp(distabl);
+            if length(exponential_table) < 100
+               
+                plot_exponential_function = zeros(101, 2);
+                
+                for i = 0:100
+                   
+                    plot_exponential_function(i+1, 1) = exponential_table(min_el, 1) + i*(exponential_table(max_el, 1) - exponential_table(min_el, 1))/100;
+                    
+                    plot_exponential_function(i+1, 2) = constant*exp(exponent*plot_exponential_function(i+1, 1));
+                    
+                end
+                
+            else
+                
+                plot_exponential_function = exponential_table;
+            end
             
-            obj.expo = table;
-            
-            %figure;
-            %plot(table(:,1), table(:,2), '--g', 'LineWidth', 2);
+            obj.exponential_regression{1} = exponential_table;
+            obj.exponential_regression{2} = plot_exponential_function;
+            obj.exponential_regression{3} = indices;
         end
         
-        function obj = corr(obj)
+        function correlation = Correlation(~, original_function, regressive_function)
             
-            rege = zeros(2,1);
+            %Returns the correlation of the polynomic and exponential
+            %regression with respect to the original function.
+            
             y_prom = 0;
+            amount_of_dates = length(original_function);
             
-            for prom = 0:obj.tot
-                y_prom = y_prom + obj.orig(10*prom+1, 2);
+            for prom = 1:amount_of_dates
+                
+                y_prom = y_prom + original_function(prom, 2);
+                
             end
-            y_prom = y_prom/obj.tot;
+            
+            y_prom = y_prom/amount_of_dates;
             
             ss_tot = 0;
-            ss_res_e = 0;
-            ss_res_p = 0;
+            ss_regressive = 0;
             
-            for reg = 0:obj.tot
-                ss_tot = ss_tot + (obj.orig(10*reg+1, 2) - y_prom)^2;
-                ss_res_e = ss_res_e + (obj.orig(10*reg+1, 2) - obj.expo(10*reg+1, 2))^2;
-                ss_res_p = ss_res_p + (obj.orig(10*reg+1, 2) - obj.polyn(10*reg+1, 2))^2;
+            for reg = 1:amount_of_dates
+                ss_tot = ss_tot + (original_function(reg, 2) - y_prom)^2;
+                ss_regressive = ss_regressive + (original_function(reg, 2) - regressive_function(reg, 2))^2;
             end
             
-            reg_e = 1 - ss_res_e/ss_tot;
-            reg_p = 1 - ss_res_p/ss_tot;
+            digits(8)
+            correlation = vpa(1 - ss_regressive/ss_tot);
             
-            rege(1,1) = reg_p;
-            rege(2,1) = reg_e;
-            
-            obj.rec = rege;
-            disp(rege);
+            disp(correlation);
         end
         
-        function obj = less_orig(obj, fn)
+        function obj = Less_Data_Original_Function(obj, original_function)
             
-            distabl = zeros(obj.tot + 1, 2);
+            %Generates with some data of the original function another one
+            %which doesn't support too much values, so it's perfect to
+            %generate points in the plot (in this case I'm using
+            %asterisks).
             
-            for l = 0:obj.tot
+            dates_to_return = zeros(obj.amount_dates + 1, 2);
+            
+            for l = 0:obj.amount_dates
                 
-                distabl(l+1, 1) = fn(10*l + 1, 1);
-                distabl(l+1, 2) = fn(10*l + 1, 2);
+                dates_to_return(l+1, 1) = original_function(10*l + 1, 1);
+                dates_to_return(l+1, 2) = original_function(10*l + 1, 2);
             end
             
-            obj.less_data_orig = distabl;
+            obj.less_data_original_function = dates_to_return;
         end
         
-        function obj = to_plot(obj)
+        function obj = Plot_Regressions(obj)
+            
+            %Used to plot the regressions (must exist both the polynomic
+            %and exponential regressions) and compare them graphically with
+            %the original function. The main idea is to expand this project
+            %to generate whichever original function I wish and generate
+            %the best option to the exponential regression.
+            
             figure
             
-            obj.less_orig(obj.orig);
+%             obj.Less_Data_Original_Function(obj.original_function);
             
             hold on
-            plot(obj.less_data_orig(:,1), obj.less_data_orig(:,2), '*k', 'LineWidth', 2.5)
-            plot(obj.orig(:,1), obj.orig(:,2), '-.k', 'LineWidth', 2.5)
-            plot(obj.polyn(:,1), obj.polyn(:,2), 'b', 'LineWidth', 1.5)
-            plot(obj.expo(:,1), obj.expo(:,2), 'r', 'LineWidth', 1.5)
+            
+%             plot(obj.less_data_original_function(:,1), obj.less_data_original_function(:,2), 'ko', 'LineWidth', 2.5)
+            
+            plot(obj.original_function(:,1), obj.original_function(:,2), 'ko', 'LineWidth', 2.5)
+            
+            if ~isempty(obj.polynomic_regression) && ~isempty(obj.polynomic_regression{2})
+                table_polynomic = obj.polynomic_regression{2};
+                plot(table_polynomic(:,1), table_polynomic(:,2), 'b', 'LineWidth', 1.5)
+                
+            end
+            
+            if ~isempty(obj.exponential_regression) && ~isempty(obj.exponential_regression{2})
+                table_exponential = obj.exponential_regression{2};
+                plot(table_exponential(:,1), table_exponential(:,2), 'r', 'LineWidth', 1.5)
+            end
+            
         end
+        
     end
     
-    methods (Static)
-        function mn = main()
-            reg = Regressions;
-            reg.tot = 15;
-            reg.originalFn();
-            reg.index = [7.6020188338; -22.198989095; 9.6523486495; -1.3435805648; 0.059312857228];
-            reg.a_grade = 4;
-            reg.polynomicReg(4);
-            reg.expReg(0.0113619397114986, 0.681882418034206);
-            reg.corr();
-            %C = [reg.orig reg.polyn reg.expo];
-            %disp(C);
-            reg.to_plot();
-%             pr = Regressions;
-%             pr.tot = 15;
-%             pr.index = [1; log(2); log(2)^2; log(2)^3; log(2)^4]/100;
-%             pr.a_grade = 4;
-%             pr.polynomicReg(4);
-%             figure
-%             hold on
-%             plot(reg.polyn(:,1), reg.polyn(:,2), 'b', 'LineWidth',2);
-%             plot(pr.polyn(:,1), pr.polyn(:,2), 'r', 'LineWidth',2);
-            mn = reg.rec;
-        end
-    end
 end
